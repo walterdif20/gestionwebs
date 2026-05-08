@@ -9,6 +9,7 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState([]);
   const [q, setQ] = useState('');
   const [jsonInput, setJsonInput] = useState('');
+  const [jsonFileName, setJsonFileName] = useState('');
   const [importError, setImportError] = useState('');
 
   useEffect(() => { getLeads().then(setLeads); }, []);
@@ -65,12 +66,34 @@ export default function LeadsPage() {
     }
   };
 
+  const handleJsonFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const content = await file.text();
+      setJsonInput(content);
+      setJsonFileName(file.name);
+      setImportError('');
+    } catch {
+      setImportError('No se pudo leer el archivo seleccionado.');
+      setJsonFileName('');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
   return <section className="card">
     <h2>Leads</h2>
     <details>
       <summary>Importar lead(s) desde JSON</summary>
       <label>
-        Pegá uno o varios objetos JSON (campos en blanco permitidos)
+        Adjuntar archivo JSON
+        <input type="file" accept="application/json,.json,text/json" onChange={handleJsonFileChange} />
+      </label>
+      {jsonFileName && <p>Archivo cargado: <strong>{jsonFileName}</strong></p>}
+      <label>
+        Pegá uno o varios objetos JSON (o editá el contenido del archivo cargado)
         <textarea
           rows="8"
           placeholder='{"businessName":"Ejemplo","email":""}'
