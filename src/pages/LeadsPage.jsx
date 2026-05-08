@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { deleteLead, getLeads, createLead } from '../services/leadsService';
 import StatusBadge from '../components/StatusBadge';
+import { emptyLead, inferGeneralStatus } from '../utils/leadHelpers';
 
 export default function LeadsPage() {
   const [params, setParams] = useSearchParams();
   const [leads, setLeads] = useState([]);
   const [q, setQ] = useState('');
+  const [jsonInput, setJsonInput] = useState('');
+  const [importError, setImportError] = useState('');
 
   useEffect(() => { getLeads().then(setLeads); }, []);
 
@@ -21,8 +24,63 @@ export default function LeadsPage() {
 
   const reload = () => getLeads().then(setLeads);
 
+  const parseJsonRecords = (rawInput) => {
+    const cleaned = rawInput.trim();
+    if (!cleaned) return [];
+
+    const direct = cleaned.replace(/^```json\s*/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+    const chunks = direct.match(/\{[\s\S]*?\}/g);
+    const candidate = chunks && chunks.length > 1 ? `[${chunks.join(',')}]` : direct;
+    const parsed = JSON.parse(candidate);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  };
+
+  const mapImportedLead = (item) => {
+    const lead = { ...emptyLead };
+    Object.keys(lead).forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(item, key)) {
+        lead[key] = item[key] ?? '';
+      }
+    });
+    lead.generalStatus = inferGeneralStatus(lead);
+    return lead;
+  };
+
+  const handleImportJson = async () => {
+    try {
+      setImportError('');
+      const records = parseJsonRecords(jsonInput);
+      if (!records.length) {
+        setImportError('Pegá al menos un objeto JSON para importar.');
+        return;
+      }
+
+      for (const item of records) {
+        await createLead(mapImportedLead(item));
+      }
+      setJsonInput('');
+      await reload();
+    } catch {
+      setImportError('No se pudo interpretar el JSON. Verificá el formato y probá de nuevo.');
+    }
+  };
+
   return <section className="card">
     <h2>Leads</h2>
+    <details>
+      <summary>Importar lead(s) desde JSON</summary>
+      <label>
+        Pegá uno o varios objetos JSON (campos en blanco permitidos)
+        <textarea
+          rows="8"
+          placeholder='{"businessName":"Ejemplo","email":""}'
+          value={jsonInput}
+          onChange={(e) => setJsonInput(e.target.value)}
+        />
+      </label>
+      {importError && <p role="alert">{importError}</p>}
+      <button type="button" onClick={handleImportJson}>Importar JSON</button>
+    </details>
     <input placeholder="Buscar por negocio, categoría, ciudad, email o WhatsApp" value={q} onChange={(e) => setQ(e.target.value)} />
     <table><thead><tr><th>Negocio</th><th>Categoría</th><th>Ciudad</th><th>WhatsApp</th><th>Email</th><th>Estado</th><th>Score</th><th>Pagado</th><th>Acciones</th></tr></thead>
       <tbody>{filtered.map((l) => <tr key={l.id}><td>{l.businessName}</td><td>{l.businessCategory}</td><td>{l.city}</td><td>{l.whatsapp}</td><td>{l.email}</td><td><StatusBadge>{l.generalStatus}</StatusBadge></td><td>{l.opportunityScore}</td><td>{l.clientPaid ? 'Sí' : 'No'}</td>
