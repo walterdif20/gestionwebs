@@ -16,5 +16,5 @@ export default function LeadFormPage({ mode }) {
   };
 
   if (mode === 'edit' && !lead) return <div className="card">Loading...</div>;
-  return <section><h2>{mode === 'edit' ? 'Edit Lead' : 'Create Lead'}</h2><LeadForm initialData={lead || undefined} onSubmit={onSubmit} /></section>;
+  return <section><h2>{mode === 'edit' ? 'Editar lead' : 'Crear lead'}</h2><LeadForm initialData={lead || undefined} onSubmit={onSubmit} /></section>;
 }
